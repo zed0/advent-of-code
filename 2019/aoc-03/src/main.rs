@@ -1,7 +1,7 @@
 use std::fs;
 use std::env;
 use std::fmt;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::ops::BitAnd;
 use std::iter::FromIterator;
 use std::convert::TryInto;
@@ -16,20 +16,19 @@ fn main() {
         .map(|i| Wire::from_string(&i))
         .collect();
 
-    let intersections = wires.iter()
+    let mut intersections = wires.iter()
         .map(|i| i.points_as_set())
         .fold(wires[0].points_as_set(), |acc, x| acc.bitand(&x));
+    intersections.remove(&Point {x: 0, y: 0});
 
     // Part 1
     let result = intersections.iter()
-        .filter(|i| i.x != 0 || i.y != 0)
         .min_by_key(|a| ORIGIN.distance(&a))
         .expect("No points");
     println!("part 1: {}", ORIGIN.distance(result));
 
     // Part 2
     let result = intersections.iter()
-        .filter(|i| i.x != 0 || i.y != 0)
         .min_by_key(|a| {
             wires.iter().fold(0, |acc, w| acc + w.distance_to_point(a))
         })
@@ -94,7 +93,7 @@ impl Wire {
         Wire {points}
     }
 
-    fn points_as_set(&self) -> HashSet<&Point> {
-        HashSet::from_iter(&self.points)
+    fn points_as_set(&self) -> BTreeSet<&Point> {
+        BTreeSet::from_iter(&self.points)
     }
 }

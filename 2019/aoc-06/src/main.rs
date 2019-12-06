@@ -19,15 +19,8 @@ fn main() {
             (String::from(parts.next().unwrap()), String::from(parts.next().unwrap()))
         })
         .for_each(|edge| {
-            // This should be possible to move to a function, but rust.
-            let a = match bodies.get(&edge.0) {
-                Some(&edge) => edge,
-                _ => {let n = orbit_map.add_node(0); bodies.insert(edge.0, n); n},
-            };
-            let b = match bodies.get(&edge.1) {
-                Some(&edge) => edge,
-                _ => {let n = orbit_map.add_node(0); bodies.insert(edge.1, n); n},
-            };
+            let a = *bodies.entry(edge.0).or_insert_with(|| orbit_map.add_node(0));
+            let b = *bodies.entry(edge.1).or_insert_with(|| orbit_map.add_node(0));
             orbit_map.add_edge(a, b, 1);
         });
 

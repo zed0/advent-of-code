@@ -1,6 +1,8 @@
 use std::fs;
 use std::env;
 use intcode::VirtualMachine;
+use std::sync::mpsc;
+use std::thread;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -11,16 +13,46 @@ fn main() {
         .collect();
 
     // Part 1
-    let mut v = VirtualMachine::new(code.clone());
-    let mut inputs = vec![1].into();
-    v.set_inputs(&mut inputs);
-    v.run();
-    println!("outputs: {:?}", v.get_outputs());
+    {
+        let (input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+        let code_1 = code.clone();
+        thread::spawn(move || {
+            let mut v = VirtualMachine::new(code_1, input_rx, output_tx);
+            v.run();
+        });
+        input_tx.send(1).unwrap();
+
+        let mut output = -1;
+
+        loop {
+            match output_rx.recv() {
+                Ok(n) => output = n,
+                Err(_) => break,
+            };
+        }
+        println!("outputs: {:?}", output);
+    }
 
     // Part 2
-    let mut v = VirtualMachine::new(code.clone());
-    let mut inputs = vec![5].into();
-    v.set_inputs(&mut inputs);
-    v.run();
-    println!("outputs: {:?}", v.get_outputs());
+    {
+        let (input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+        let code_2 = code.clone();
+        thread::spawn(move || {
+            let mut v = VirtualMachine::new(code_2, input_rx, output_tx);
+            v.run();
+        });
+        input_tx.send(5).unwrap();
+
+        let mut output = -1;
+
+        loop {
+            match output_rx.recv() {
+                Ok(n) => output = n,
+                Err(_) => break,
+            };
+        }
+        println!("outputs: {:?}", output);
+    }
 }

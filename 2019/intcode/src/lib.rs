@@ -1,29 +1,33 @@
-use std::collections::VecDeque;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::sync::mpsc;
 
 pub struct VirtualMachine {
     pub memory: Vec<i64>,
     ops: HashMap<i64, Operation>,
-    inputs: VecDeque<i64>,
-    outputs: Vec<i64>,
+    input: mpsc::Receiver<i64>,
+    output: mpsc::Sender<i64>,
 }
 
 pub struct Operation {
     name: String,
     args: usize,
-    perform: fn(&mut Vec<i64>, Vec<i64>, &mut VecDeque<i64>, &mut Vec<i64>) -> (bool, Option<usize>),
+    perform: fn(&mut Vec<i64>, Vec<i64>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>) -> (bool, Option<usize>),
 }
 
 impl VirtualMachine {
-    pub fn new(memory: Vec<i64>) -> VirtualMachine {
+    pub fn new(
+        memory: Vec<i64>,
+        input: mpsc::Receiver<i64>,
+        output: mpsc::Sender<i64>,
+    ) -> VirtualMachine {
         let mut ops: HashMap<i64, Operation> = HashMap::new();
         ops.insert(
             1,
              Operation{
                 name: String::from("add"),
                 args: 3,
-                perform: | mem, args, _inputs, _outputs| {
+                perform: | mem, args, _input, _output | {
                     let a: usize = args[0].try_into().unwrap();
                     let b: usize = args[1].try_into().unwrap();
                     let dest: usize = args[2].try_into().unwrap();
@@ -37,7 +41,7 @@ impl VirtualMachine {
              Operation{
                 name: String::from("multiply"),
                 args: 3,
-                perform: | mem, args, _inputs, _outputs | {
+                perform: | mem, args, _input, _output | {
                     let a: usize = args[0].try_into().unwrap();
                     let b: usize = args[1].try_into().unwrap();
                     let dest: usize = args[2].try_into().unwrap();
@@ -51,9 +55,9 @@ impl VirtualMachine {
              Operation{
                 name: String::from("input"),
                 args: 1,
-                perform: | mem, args, inputs, _outputs | {
+                perform: | mem, args, input, _output | {
                     let dest: usize = args[0].try_into().unwrap();
-                    mem[dest] = inputs.pop_front().unwrap();
+                    mem[dest] = input.recv().unwrap();
                     return (false, None);
                 }
             }
@@ -63,9 +67,9 @@ impl VirtualMachine {
              Operation{
                 name: String::from("output"),
                 args: 1,
-                perform: | mem, args, _inputs, outputs | {
+                perform: | mem, args, _input, output | {
                     let source: usize = args[0].try_into().unwrap();
-                    outputs.push(mem[source]);
+                    output.send(mem[source]).unwrap();
                     return (false, None);
                 }
             }
@@ -75,7 +79,7 @@ impl VirtualMachine {
              Operation{
                 name: String::from("jump-if-true"),
                 args: 2,
-                perform: | mem, args, _inputs, _outputs | {
+                perform: | mem, args, _input, _output | {
                     let condition: usize = args[0].try_into().unwrap();
                     let dest: usize = args[1].try_into().unwrap();
                     if mem[condition] != 0 {
@@ -91,7 +95,7 @@ impl VirtualMachine {
              Operation{
                 name: String::from("jump-if-false"),
                 args: 2,
-                perform: | mem, args, _inputs, _outputs | {
+                perform: | mem, args, _input, _output | {
                     let condition: usize = args[0].try_into().unwrap();
                     let dest: usize = args[1].try_into().unwrap();
                     if mem[condition] == 0 {
@@ -107,7 +111,7 @@ impl VirtualMachine {
              Operation{
                 name: String::from("less than"),
                 args: 3,
-                perform: | mem, args, _inputs, _outputs | {
+                perform: | mem, args, _input, _output | {
                     let a: usize = args[0].try_into().unwrap();
                     let b: usize = args[1].try_into().unwrap();
                     let dest: usize = args[2].try_into().unwrap();
@@ -125,7 +129,7 @@ impl VirtualMachine {
              Operation{
                 name: String::from("equals"),
                 args: 3,
-                perform: | mem, args, _inputs, _outputs | {
+                perform: | mem, args, _input, _output | {
                     let a: usize = args[0].try_into().unwrap();
                     let b: usize = args[1].try_into().unwrap();
                     let dest: usize = args[2].try_into().unwrap();
@@ -143,24 +147,16 @@ impl VirtualMachine {
              Operation{
                 name: String::from("halt"),
                 args: 0,
-                perform: | _mem, _arg, _inputs, _outputs | {(true, None)}
+                perform: | _mem, _arg, _input, _output | {(true, None)}
             }
         );
 
         VirtualMachine {
             memory: memory,
             ops,
-            inputs: VecDeque::new(),
-            outputs: vec![],
+            input,
+            output,
         }
-    }
-
-    pub fn set_inputs(&mut self, inputs: &VecDeque<i64>) {
-        self.inputs = inputs.clone();
-    }
-
-    pub fn get_outputs(&self) -> &Vec<i64> {
-        &self.outputs
     }
 
     pub fn run(&mut self) {
@@ -180,7 +176,7 @@ impl VirtualMachine {
                 }
                 arg_modes /= 10;
             }
-            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.inputs, &mut self.outputs);
+            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.input, &mut self.output);
             if halt { break; }
             match jump {
                 Some(n) => pos = n,
@@ -193,6 +189,8 @@ impl VirtualMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread;
+
     #[test]
     fn day_5_example() {
         let code = vec![
@@ -201,10 +199,18 @@ mod tests {
             999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99
         ];
 
-        let mut v = VirtualMachine::new(code);
-        let mut inputs = vec![8].into();
-        v.set_inputs(&mut inputs);
-        v.run();
-        assert_eq!(v.get_outputs(), &vec![1000_i64]);
+        let (input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+
+        let t = thread::spawn(move || {
+            let mut v = VirtualMachine::new(code, input_rx, output_tx);
+            v.run();
+        });
+
+        input_tx.send(8).unwrap();
+        let received = output_rx.recv().unwrap();
+
+        t.join().unwrap();
+        assert_eq!(received, 1000);
     }
 }

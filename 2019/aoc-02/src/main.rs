@@ -1,6 +1,7 @@
 use std::fs;
 use std::env;
 use intcode::VirtualMachine;
+use std::sync::mpsc;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -11,7 +12,8 @@ fn main() {
         .collect();
 
     // Part 1
-    let mut v = VirtualMachine::new(code.clone());
+    let (mut dummy_tx, mut dummy_rx) = mpsc::channel();
+    let mut v = VirtualMachine::new(code.clone(), dummy_rx, dummy_tx);
     v.memory[1] = 12;
     v.memory[2] = 2;
     v.run();
@@ -22,7 +24,8 @@ fn main() {
     let target = 19690720;
     'outer: for a in 0..100 {
         for b in 0..100 {
-            let mut v = VirtualMachine::new(code.clone());
+            let (mut dummy_tx, mut dummy_rx) = mpsc::channel();
+            let mut v = VirtualMachine::new(code.clone(), dummy_rx, dummy_tx);
             v.memory[1] = a;
             v.memory[2] = b;
             v.run();

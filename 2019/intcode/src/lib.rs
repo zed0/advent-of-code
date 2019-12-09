@@ -7,12 +7,13 @@ pub struct VirtualMachine {
     ops: HashMap<i64, Operation>,
     input: mpsc::Receiver<i64>,
     output: mpsc::Sender<i64>,
+    relative_base: i64,
 }
 
 pub struct Operation {
     name: String,
     args: usize,
-    perform: fn(&mut Vec<i64>, Vec<i64>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>) -> (bool, Option<usize>),
+    perform: fn(&mut Vec<i64>, Vec<usize>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>, &mut i64) -> (bool, Option<usize>),
 }
 
 impl VirtualMachine {
@@ -27,10 +28,10 @@ impl VirtualMachine {
              Operation{
                 name: String::from("add"),
                 args: 3,
-                perform: | mem, args, _input, _output | {
-                    let a: usize = args[0].try_into().unwrap();
-                    let b: usize = args[1].try_into().unwrap();
-                    let dest: usize = args[2].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let a = args[0];
+                    let b = args[1];
+                    let dest = args[2];
                     mem[dest] = mem[a] + mem[b];
                     return (false, None);
                 }
@@ -41,10 +42,10 @@ impl VirtualMachine {
              Operation{
                 name: String::from("multiply"),
                 args: 3,
-                perform: | mem, args, _input, _output | {
-                    let a: usize = args[0].try_into().unwrap();
-                    let b: usize = args[1].try_into().unwrap();
-                    let dest: usize = args[2].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let a = args[0];
+                    let b = args[1];
+                    let dest = args[2];
                     mem[dest] = mem[a] * mem[b];
                     return (false, None);
                 }
@@ -55,8 +56,8 @@ impl VirtualMachine {
              Operation{
                 name: String::from("input"),
                 args: 1,
-                perform: | mem, args, input, _output | {
-                    let dest: usize = args[0].try_into().unwrap();
+                perform: | mem, args, input, _output, _relative_base | {
+                    let dest = args[0];
                     mem[dest] = input.recv().unwrap();
                     return (false, None);
                 }
@@ -67,8 +68,8 @@ impl VirtualMachine {
              Operation{
                 name: String::from("output"),
                 args: 1,
-                perform: | mem, args, _input, output | {
-                    let source: usize = args[0].try_into().unwrap();
+                perform: | mem, args, _input, output, _relative_base | {
+                    let source = args[0];
                     output.send(mem[source]).unwrap();
                     return (false, None);
                 }
@@ -79,9 +80,9 @@ impl VirtualMachine {
              Operation{
                 name: String::from("jump-if-true"),
                 args: 2,
-                perform: | mem, args, _input, _output | {
-                    let condition: usize = args[0].try_into().unwrap();
-                    let dest: usize = args[1].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let condition = args[0];
+                    let dest = args[1];
                     if mem[condition] != 0 {
                         return (false, Some(mem[dest].try_into().unwrap()));
                     } else {
@@ -95,9 +96,9 @@ impl VirtualMachine {
              Operation{
                 name: String::from("jump-if-false"),
                 args: 2,
-                perform: | mem, args, _input, _output | {
-                    let condition: usize = args[0].try_into().unwrap();
-                    let dest: usize = args[1].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let condition = args[0];
+                    let dest = args[1];
                     if mem[condition] == 0 {
                         return (false, Some(mem[dest].try_into().unwrap()));
                     } else {
@@ -111,10 +112,10 @@ impl VirtualMachine {
              Operation{
                 name: String::from("less than"),
                 args: 3,
-                perform: | mem, args, _input, _output | {
-                    let a: usize = args[0].try_into().unwrap();
-                    let b: usize = args[1].try_into().unwrap();
-                    let dest: usize = args[2].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let a = args[0];
+                    let b = args[1];
+                    let dest = args[2];
                     if mem[a] < mem[b] {
                         mem[dest] = 1;
                     } else {
@@ -129,10 +130,10 @@ impl VirtualMachine {
              Operation{
                 name: String::from("equals"),
                 args: 3,
-                perform: | mem, args, _input, _output | {
-                    let a: usize = args[0].try_into().unwrap();
-                    let b: usize = args[1].try_into().unwrap();
-                    let dest: usize = args[2].try_into().unwrap();
+                perform: | mem, args, _input, _output, _relative_base | {
+                    let a = args[0];
+                    let b = args[1];
+                    let dest = args[2];
                     if mem[a] == mem[b] {
                         mem[dest] = 1;
                     } else {
@@ -143,11 +144,23 @@ impl VirtualMachine {
             }
         );
         ops.insert(
+            9,
+             Operation{
+                name: String::from("adjust relative base"),
+                args: 1,
+                perform: | mem, args, _input, _output, relative_base | {
+                    let a = args[0];
+                    *relative_base += mem[a];
+                    return (false, None);
+                }
+            }
+        );
+        ops.insert(
             99,
              Operation{
                 name: String::from("halt"),
                 args: 0,
-                perform: | _mem, _arg, _input, _output | {(true, None)}
+                perform: | _mem, _arg, _input, _output, _relative_base | {(true, None)}
             }
         );
 
@@ -156,6 +169,7 @@ impl VirtualMachine {
             ops,
             input,
             output,
+            relative_base: 0,
         }
     }
 
@@ -166,17 +180,30 @@ impl VirtualMachine {
             let opcode = self.memory[pos] % 100;
             let operation = self.ops.get(&opcode).expect("Unknown operation");
             let mut arg_modes = self.memory[pos] / 100;
-            let mut args: Vec<i64> = vec![];
+            let mut args: Vec<usize> = vec![];
             for arg_no in 1 .. operation.args + 1 {
                 let arg_mode = arg_modes % 10;
                 if arg_mode == 1 {
-                    args.push((pos + arg_no).try_into().unwrap());
+                    args.push(pos + arg_no);
+                } else if arg_mode == 2 {
+                    args.push(
+                        (self.memory[pos + arg_no] + self.relative_base).try_into().unwrap()
+                    );
                 } else {
-                    args.push(self.memory[pos + arg_no]);
+                    args.push(
+                        (self.memory[pos + arg_no]).try_into().unwrap()
+                    );
                 }
                 arg_modes /= 10;
             }
-            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.input, &mut self.output);
+
+            for arg in &args {
+                if arg >= &self.memory.len() {
+                    self.memory.resize(*arg+1, 0);
+                }
+            }
+
+            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.input, &mut self.output, &mut self.relative_base);
             if halt { break; }
             match jump {
                 Some(n) => pos = n,
@@ -212,5 +239,68 @@ mod tests {
 
         t.join().unwrap();
         assert_eq!(received, 1000);
+    }
+
+    #[test]
+    fn day_9_example_1() {
+        let mut code = vec![109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99];
+        let original_code = code.clone();
+
+        let (_input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+
+        let t = thread::spawn(move || {
+            let mut v = VirtualMachine::new(code, input_rx, output_tx);
+            v.run();
+        });
+
+        t.join().unwrap();
+
+        let mut output = vec![];
+        loop {
+            let received = output_rx.recv();
+            match received {
+                Ok(n) => output.push(n),
+                Err(_) => break,
+            }
+        }
+
+        assert_eq!(output, original_code);
+    }
+
+    #[test]
+    fn day_9_example_2() {
+        let code = vec![1102,34915192,34915192,7,4,7,99,0];
+
+        let (_input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+
+        let t = thread::spawn(move || {
+            let mut v = VirtualMachine::new(code, input_rx, output_tx);
+            v.run();
+        });
+
+        t.join().unwrap();
+
+        let output = output_rx.recv().unwrap();
+        assert_eq!(output, 1219070632396864);
+    }
+
+    #[test]
+    fn day_9_example_3() {
+        let code = vec![104,1125899906842624,99];
+
+        let (_input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+
+        let t = thread::spawn(move || {
+            let mut v = VirtualMachine::new(code, input_rx, output_tx);
+            v.run();
+        });
+
+        t.join().unwrap();
+
+        let output = output_rx.recv().unwrap();
+        assert_eq!(output, 1125899906842624);
     }
 }

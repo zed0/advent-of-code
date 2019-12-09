@@ -1,0 +1,50 @@
+#include <string>
+#include <iostream>
+#include <complex>
+#include <vector>
+
+using namespace std::complex_literals;
+
+int main()
+{
+	std::complex<int> position;
+	std::complex<int> direction{0,1};
+	std::vector<std::complex<int>> positions;
+	positions.emplace_back(0,0);
+
+	std::string input;
+	while(std::cin >> input)
+	{
+		std::istringstream current(input);
+		char dir;
+		current >> dir;
+		switch(dir)
+		{
+			case 'L':
+				direction *= 1i;
+				break;
+			case 'R':
+				direction *= -1i;
+				break;
+		}
+		int dist;
+		current >> dist;
+		//position += direction * dist;
+		bool finished = false;
+		for(int n=0; n<dist; ++n)
+		{
+			position += direction;
+			if(std::count(begin(positions), end(positions), position))
+			{
+				finished = true;
+				break;
+			}
+			positions.emplace_back(position);
+		}
+
+		if(finished)
+			break;
+	}
+	std::cout << "position: " << position << std::endl;
+	std::cout << "distance: " << abs(position.real()) + abs(position.imag()) << std::endl;
+}

@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::mpsc;
 
 pub struct VirtualMachine {
     pub memory: Vec<i64>,
-    ops: HashMap<i64, Operation>,
     input: mpsc::Receiver<i64>,
     output: mpsc::Sender<i64>,
     relative_base: i64,
@@ -22,151 +20,8 @@ impl VirtualMachine {
         input: mpsc::Receiver<i64>,
         output: mpsc::Sender<i64>,
     ) -> VirtualMachine {
-        let mut ops: HashMap<i64, Operation> = HashMap::new();
-        ops.insert(
-            1,
-             Operation{
-                name: String::from("add"),
-                args: 3,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let a = args[0];
-                    let b = args[1];
-                    let dest = args[2];
-                    mem[dest] = mem[a] + mem[b];
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            2,
-             Operation{
-                name: String::from("multiply"),
-                args: 3,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let a = args[0];
-                    let b = args[1];
-                    let dest = args[2];
-                    mem[dest] = mem[a] * mem[b];
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            3,
-             Operation{
-                name: String::from("input"),
-                args: 1,
-                perform: | mem, args, input, _output, _relative_base | {
-                    let dest = args[0];
-                    mem[dest] = input.recv().unwrap();
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            4,
-             Operation{
-                name: String::from("output"),
-                args: 1,
-                perform: | mem, args, _input, output, _relative_base | {
-                    let source = args[0];
-                    output.send(mem[source]).unwrap();
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            5,
-             Operation{
-                name: String::from("jump-if-true"),
-                args: 2,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let condition = args[0];
-                    let dest = args[1];
-                    if mem[condition] != 0 {
-                        return (false, Some(mem[dest].try_into().unwrap()));
-                    } else {
-                        return (false, None);
-                    }
-                }
-            }
-        );
-        ops.insert(
-            6,
-             Operation{
-                name: String::from("jump-if-false"),
-                args: 2,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let condition = args[0];
-                    let dest = args[1];
-                    if mem[condition] == 0 {
-                        return (false, Some(mem[dest].try_into().unwrap()));
-                    } else {
-                        return (false, None);
-                    }
-                }
-            }
-        );
-        ops.insert(
-            7,
-             Operation{
-                name: String::from("less than"),
-                args: 3,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let a = args[0];
-                    let b = args[1];
-                    let dest = args[2];
-                    if mem[a] < mem[b] {
-                        mem[dest] = 1;
-                    } else {
-                        mem[dest] = 0;
-                    }
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            8,
-             Operation{
-                name: String::from("equals"),
-                args: 3,
-                perform: | mem, args, _input, _output, _relative_base | {
-                    let a = args[0];
-                    let b = args[1];
-                    let dest = args[2];
-                    if mem[a] == mem[b] {
-                        mem[dest] = 1;
-                    } else {
-                        mem[dest] = 0;
-                    }
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            9,
-             Operation{
-                name: String::from("adjust relative base"),
-                args: 1,
-                perform: | mem, args, _input, _output, relative_base | {
-                    let a = args[0];
-                    *relative_base += mem[a];
-                    return (false, None);
-                }
-            }
-        );
-        ops.insert(
-            99,
-             Operation{
-                name: String::from("halt"),
-                args: 0,
-                perform: | _mem, _arg, _input, _output, _relative_base | {(true, None)}
-            }
-        );
-
         VirtualMachine {
             memory: memory,
-            ops,
             input,
             output,
             relative_base: 0,
@@ -178,21 +33,16 @@ impl VirtualMachine {
 
         loop {
             let opcode = self.memory[pos] % 100;
-            let operation = self.ops.get(&opcode).expect("Unknown operation");
+            let operation = VirtualMachine::get_op(&opcode);
             let mut arg_modes = self.memory[pos] / 100;
             let mut args: Vec<usize> = vec![];
             for arg_no in 1 .. operation.args + 1 {
                 let arg_mode = arg_modes % 10;
-                if arg_mode == 1 {
-                    args.push(pos + arg_no);
-                } else if arg_mode == 2 {
-                    args.push(
-                        (self.memory[pos + arg_no] + self.relative_base).try_into().unwrap()
-                    );
-                } else {
-                    args.push(
-                        (self.memory[pos + arg_no]).try_into().unwrap()
-                    );
+                match arg_mode {
+                    0 => args.push((self.memory[pos + arg_no]).try_into().unwrap()),
+                    1 => args.push(pos + arg_no),
+                    2 => args.push((self.memory[pos + arg_no] + self.relative_base).try_into().unwrap()),
+                    _ => panic!("Unknown arg_mode: {}", arg_mode),
                 }
                 arg_modes /= 10;
             }
@@ -209,6 +59,103 @@ impl VirtualMachine {
                 Some(n) => pos = n,
                 None => pos += operation.args + 1,
             }
+        }
+    }
+
+    fn get_op(opcode: &i64) -> Operation {
+        return match opcode {
+            1 => Operation{
+                    name: String::from("add"),
+                    args: 3,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        mem[args[2]] = mem[args[0]] + mem[args[1]];
+                        return (false, None);
+                    }
+                },
+            2 => Operation{
+                    name: String::from("multiply"),
+                    args: 3,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        mem[args[2]] = mem[args[0]] * mem[args[1]];
+                        return (false, None);
+                    }
+                },
+            3 => Operation{
+                    name: String::from("input"),
+                    args: 1,
+                    perform: | mem, args, input, _output, _relative_base | {
+                        mem[args[0]] = input.recv().unwrap();
+                        return (false, None);
+                    }
+                },
+            4 => Operation{
+                    name: String::from("output"),
+                    args: 1,
+                    perform: | mem, args, _input, output, _relative_base | {
+                        output.send(mem[args[0]]).unwrap();
+                        return (false, None);
+                    }
+                },
+            5 => Operation{
+                    name: String::from("jump-if-true"),
+                    args: 2,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        if mem[args[0]] != 0 {
+                            return (false, Some(mem[args[1]].try_into().unwrap()));
+                        } else {
+                            return (false, None);
+                        }
+                    }
+                },
+            6 => Operation{
+                    name: String::from("jump-if-false"),
+                    args: 2,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        if mem[args[0]] == 0 {
+                            return (false, Some(mem[args[1]].try_into().unwrap()));
+                        } else {
+                            return (false, None);
+                        }
+                    }
+                },
+            7 => Operation{
+                    name: String::from("less than"),
+                    args: 3,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        if mem[args[0]] < mem[args[1]] {
+                            mem[args[2]] = 1;
+                        } else {
+                            mem[args[2]] = 0;
+                        }
+                        return (false, None);
+                    }
+                },
+            8 => Operation{
+                    name: String::from("equals"),
+                    args: 3,
+                    perform: | mem, args, _input, _output, _relative_base | {
+                        if mem[args[0]] == mem[args[1]] {
+                            mem[args[2]] = 1;
+                        } else {
+                            mem[args[2]] = 0;
+                        }
+                        return (false, None);
+                    }
+                },
+            9 => Operation{
+                    name: String::from("adjust relative base"),
+                    args: 1,
+                    perform: | mem, args, _input, _output, relative_base | {
+                        *relative_base += mem[args[0]];
+                        return (false, None);
+                    }
+                },
+            99 => Operation{
+                    name: String::from("halt"),
+                    args: 0,
+                    perform: | _mem, _arg, _input, _output, _relative_base | {(true, None)}
+                },
+            _ => panic!("Unknown operation: {}", opcode),
         }
     }
 }

@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::sync::mpsc;
+use std::iter::successors;
 
 pub struct VirtualMachine {
     pub memory: Vec<i64>,
@@ -9,7 +10,6 @@ pub struct VirtualMachine {
 }
 
 pub struct Operation {
-    name: String,
     args: usize,
     perform: fn(&mut Vec<i64>, Vec<usize>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>, &mut i64) -> (bool, Option<usize>),
 }
@@ -34,18 +34,22 @@ impl VirtualMachine {
         loop {
             let opcode = self.memory[pos] % 100;
             let operation = VirtualMachine::get_op(&opcode);
-            let mut arg_modes = self.memory[pos] / 100;
-            let mut args: Vec<usize> = vec![];
-            for arg_no in 1 .. operation.args + 1 {
-                let arg_mode = arg_modes % 10;
-                match arg_mode {
-                    0 => args.push((self.memory[pos + arg_no]).try_into().unwrap()),
-                    1 => args.push(pos + arg_no),
-                    2 => args.push((self.memory[pos + arg_no] + self.relative_base).try_into().unwrap()),
-                    _ => panic!("Unknown arg_mode: {}", arg_mode),
-                }
-                arg_modes /= 10;
-            }
+            let arg_modes = successors(Some(self.memory[pos]/100), |n| Some(n/10))
+                .map(|n| n % 10)
+                .take(operation.args);
+
+            let args: Vec<usize> = arg_modes
+                .enumerate()
+                .map(|(arg_index, arg_mode)| {
+                    let arg_no = arg_index + 1;
+                    match arg_mode {
+                        0 => (self.memory[pos + arg_no]).try_into().unwrap(),
+                        1 => pos + arg_no,
+                        2 => (self.memory[pos + arg_no] + self.relative_base).try_into().unwrap(),
+                        _ => panic!("Unknown arg_mode: {}", arg_mode),
+                    }
+                })
+                .collect();
 
             for arg in &args {
                 if arg >= &self.memory.len() {
@@ -64,40 +68,40 @@ impl VirtualMachine {
 
     fn get_op(opcode: &i64) -> Operation {
         return match opcode {
+            // Add
             1 => Operation{
-                    name: String::from("add"),
                     args: 3,
                     perform: | mem, args, _input, _output, _relative_base | {
                         mem[args[2]] = mem[args[0]] + mem[args[1]];
                         return (false, None);
                     }
                 },
+            // Multiply
             2 => Operation{
-                    name: String::from("multiply"),
                     args: 3,
                     perform: | mem, args, _input, _output, _relative_base | {
                         mem[args[2]] = mem[args[0]] * mem[args[1]];
                         return (false, None);
                     }
                 },
+            // Input
             3 => Operation{
-                    name: String::from("input"),
                     args: 1,
                     perform: | mem, args, input, _output, _relative_base | {
                         mem[args[0]] = input.recv().unwrap();
                         return (false, None);
                     }
                 },
+            // Output
             4 => Operation{
-                    name: String::from("output"),
                     args: 1,
                     perform: | mem, args, _input, output, _relative_base | {
                         output.send(mem[args[0]]).unwrap();
                         return (false, None);
                     }
                 },
+            // Jump-if-true
             5 => Operation{
-                    name: String::from("jump-if-true"),
                     args: 2,
                     perform: | mem, args, _input, _output, _relative_base | {
                         if mem[args[0]] != 0 {
@@ -107,8 +111,8 @@ impl VirtualMachine {
                         }
                     }
                 },
+            // Jump-if-false
             6 => Operation{
-                    name: String::from("jump-if-false"),
                     args: 2,
                     perform: | mem, args, _input, _output, _relative_base | {
                         if mem[args[0]] == 0 {
@@ -118,8 +122,8 @@ impl VirtualMachine {
                         }
                     }
                 },
+            // Less than
             7 => Operation{
-                    name: String::from("less than"),
                     args: 3,
                     perform: | mem, args, _input, _output, _relative_base | {
                         if mem[args[0]] < mem[args[1]] {
@@ -130,8 +134,8 @@ impl VirtualMachine {
                         return (false, None);
                     }
                 },
+            // Equals
             8 => Operation{
-                    name: String::from("equals"),
                     args: 3,
                     perform: | mem, args, _input, _output, _relative_base | {
                         if mem[args[0]] == mem[args[1]] {
@@ -142,16 +146,16 @@ impl VirtualMachine {
                         return (false, None);
                     }
                 },
+            // Adjust relative base
             9 => Operation{
-                    name: String::from("adjust relative base"),
                     args: 1,
                     perform: | mem, args, _input, _output, relative_base | {
                         *relative_base += mem[args[0]];
                         return (false, None);
                     }
                 },
+            // Halt
             99 => Operation{
-                    name: String::from("halt"),
                     args: 0,
                     perform: | _mem, _arg, _input, _output, _relative_base | {(true, None)}
                 },

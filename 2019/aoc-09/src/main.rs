@@ -25,14 +25,7 @@ fn main() {
 
         t.join().unwrap();
 
-        let mut outputs = vec![];
-        loop {
-            let received = output_rx.recv();
-            match received {
-                Ok(n) => outputs.push(n),
-                Err(_) => break,
-            }
-        }
+        let outputs: Vec<i64> = output_rx.try_iter().collect();
 
         println!("part 1: {:?}", outputs);
     }
@@ -42,22 +35,16 @@ fn main() {
         let (input_tx, input_rx) = mpsc::channel();
         let (output_tx, output_rx) = mpsc::channel();
         let code_2 = code.clone();
+        input_tx.send(2).unwrap();
+
         let t = thread::spawn(move || {
             let mut v = VirtualMachine::new(code_2, input_rx, output_tx);
             v.run();
         });
-        input_tx.send(2).unwrap();
 
         t.join().unwrap();
 
-        let mut outputs = vec![];
-        loop {
-            let received = output_rx.recv();
-            match received {
-                Ok(n) => outputs.push(n),
-                Err(_) => break,
-            }
-        }
+        let outputs: Vec<i64> = output_rx.try_iter().collect();
 
         println!("part 2: {:?}", outputs);
     }

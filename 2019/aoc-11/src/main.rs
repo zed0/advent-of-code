@@ -26,23 +26,28 @@ fn main() {
         let mut map: HashMap<(i64, i64), i64> = HashMap::new();
         map.insert((0, 0), 1);
         paint_map(&mut map, &code);
-        let min_x = (map.iter().min_by_key(|((x,_y), _)| x).unwrap().0).0;
-        let max_x = (map.iter().max_by_key(|((x,_y), _)| x).unwrap().0).0;
-        let min_y = (map.iter().min_by_key(|((_x,y), _)| y).unwrap().0).1;
-        let max_y = (map.iter().max_by_key(|((_x,y), _)| y).unwrap().0).1;
-
         println!("part 2:");
-        for y in min_y..(max_y+1) {
-            for x in min_x..(max_x+1) {
-                let current_colour = map.get(&(x, y)).unwrap_or(&0);
-                if *current_colour == 1 {
-                    print!("█");
-                } else {
-                    print!(" ");
-                }
+        print_map(&map);
+    }
+}
+
+fn print_map(map: &HashMap<(i64, i64), i64>)
+{
+    let min_x = (map.iter().min_by_key(|((x,_y), _)| x).unwrap().0).0;
+    let max_x = (map.iter().max_by_key(|((x,_y), _)| x).unwrap().0).0;
+    let min_y = (map.iter().min_by_key(|((_x,y), _)| y).unwrap().0).1;
+    let max_y = (map.iter().max_by_key(|((_x,y), _)| y).unwrap().0).1;
+
+    for y in min_y..(max_y+1) {
+        for x in min_x..(max_x+1) {
+            let current_colour = map.get(&(x, y)).unwrap_or(&0);
+            if *current_colour == 1 {
+                print!("█");
+            } else {
+                print!(" ");
             }
-            println!();
         }
+        println!();
     }
 }
 

@@ -1,0 +1,61 @@
+12345678
+
+Input: ABCDEFGH
+Pattern: 0,1,0,-1
+
+Phase 1:
++ 1A + 0B - 1C + 0D + 1E + 0F - 1G + 0H
+
+A(1) = +1A +0B -1C +0D +1E +0F -1G +0H = A - C + E - G = A    - C     + E     - G
+B(1) = +0A +1B +1C +0D +0E -1F -1G +0H = B + C - F - G =    B + C         - F - G
+C(1) = +0A +0B +1C +1D +1E +0F +0G +0H = C + D + E     =        C + D + E
+D(1) = +0A +0B +0C +1D +1E +1F +1G +0H = D + E + F + G =            D + E + F + G
+E(1) = +0A +0B +0C +0D +1E +1F +1G +1H = E + F + G + H =                E + F + G + H
+F(1) = +0A +0B +0C +0D +0E +1F +1G +1H = F + G + H     =                    F + G + H
+G(1) = +0A +0B +0C +0D +0E +0F +1G +1H = G + H         =                        G + H
+H(1) = +0A +0B +0C +0D +0E +0F +0G +1H = H             =                            H
+
+A(2) = A(1) - C(1) + E(1) - G(1) = +1A     -2C -1D +1E  +1F  -1G
+B(2) = B(1) + C(1) - F(1) - G(1) =     +1B +2C +1D +1E  -2F  -3G  -2H
+C(2) = C(1) + D(1) + E(1)        =         +1C +2D +3E  +2F  +2G  +1H
+D(2) = D(1) + E(1) + F(1) + G(1) =             +1D +2E  +3F  +4G  +3H
+
+E(1) = E(0) + F(0) + G(0) + H(0) =                 +1E  +1F  +1G  +1H
+F(1) = F(0) + G(0) + H(0)        =                      +1F  +1G  +1H
+G(1) = G(0) + H(0)               =                           +1G  +1H
+H(1) = H(0)                      =                                +1H
+
+E(2) = E(1) + F(1) + G(1) + H(1) =                 +1E  +2F  +3G  +4H
+F(2) = F(1) + G(1) + H(1)        =                      +1F  +2G  +3H
+G(2) = G(1) + H(1)               =                           +1G  +2H
+H(2) = H(1)                      =                                +1H
+
+E(3)= E(2)+ F(2)+ G(2)+ H(2)     =                 +1E  +3F  +6G +10H
+F(3)= F(2)+ G(2)+ H(2)           =                      +1F  +3G  +6H
+G(3)= G(2)+ H(2)                 =                           +1G  +3H
+H(3)= H(2)                       =                                +1H
+
+E(4)= E(3)+F(3)+G(3)+H(3)        =                 +1E  +4F +10G +20H
+F(4)= F(3)+G(3)+H(3)             =                      +1F  +4G +10H
+G(4)= G(3)+H(3)                  =                           +1G  +4H
+H(4)= H(3)                       =                                +1H
+
+E(n)= 1E + nF + tri(n)G + tet(n)H
+F(n)= 1F + nG + tri(n)H
+G(n)= 1G + nH
+H(n)= 1H
+
+for -xth position, nth iteration:
+d(x,n) = sum[p = 1->x](pascal_diagonal(n,p) * input[-p]);
+pascal_diagonal(n,p):
+n=5
+pd(n,0) = 1;
+pd(n,p) = pd(n, p-1) * (n+p)/p
+pd(5,0) = 1;
+pd(5,1) = pd(5, 0) * (5+1)/1 = 1*6 = 6;
+pd(5,2) = pd(5, 1) * (5+2)/2 = 6*(7/2) = 21;
+pd(5,3) = pd(5, 2) * (5+3)/3 = 21*(8/3) = 56;
+
+digits starting at: 5,970,807
+input size:         6,500,000
+OVER HALF WAY!

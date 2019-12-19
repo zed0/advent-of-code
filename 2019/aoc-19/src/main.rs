@@ -36,7 +36,7 @@ fn main() {
         let mut total = 0;
         let mut min_y = 0;
 
-        let mut x = 0;
+        let mut x = size;
 
         let result = 'outer: loop {
             let mut y = min_y;
@@ -44,7 +44,7 @@ fn main() {
                 if check_point(x, y, &code) {
                     min_y = y;
 
-                    if x >= size && check_point(x-(size-1), y+(size-1), &code) {
+                    if check_point(x-(size-1), y+(size-1), &code) {
                         break 'outer (x-(size-1), y);
                     }
                     break;

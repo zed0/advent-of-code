@@ -7,11 +7,12 @@ pub struct VirtualMachine {
     input: mpsc::Receiver<i64>,
     output: mpsc::Sender<i64>,
     relative_base: i64,
+    blocking: bool,
 }
 
 pub struct Operation {
     args: usize,
-    perform: fn(&mut Vec<i64>, Vec<usize>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>, &mut i64) -> (bool, Option<usize>),
+    perform: fn(&mut Vec<i64>, Vec<usize>, &mut mpsc::Receiver<i64>, &mut mpsc::Sender<i64>, &mut i64, bool) -> (bool, Option<usize>),
 }
 
 impl VirtualMachine {
@@ -25,6 +26,21 @@ impl VirtualMachine {
             input,
             output,
             relative_base: 0,
+            blocking: true,
+        }
+    }
+
+    pub fn new_async(
+        memory: Vec<i64>,
+        input: mpsc::Receiver<i64>,
+        output: mpsc::Sender<i64>,
+    ) -> VirtualMachine {
+        VirtualMachine {
+            memory: memory,
+            input,
+            output,
+            relative_base: 0,
+            blocking: false,
         }
     }
 
@@ -57,7 +73,7 @@ impl VirtualMachine {
                 }
             }
 
-            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.input, &mut self.output, &mut self.relative_base);
+            let (halt, jump) = (operation.perform)(&mut self.memory, args, &mut self.input, &mut self.output, &mut self.relative_base, self.blocking);
             if halt { break; }
             match jump {
                 Some(n) => pos = n,
@@ -71,7 +87,7 @@ impl VirtualMachine {
             // Add
             1 => Operation{
                     args: 3,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         mem[args[2]] = mem[args[0]] + mem[args[1]];
                         return (false, None);
                     }
@@ -79,7 +95,7 @@ impl VirtualMachine {
             // Multiply
             2 => Operation{
                     args: 3,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         mem[args[2]] = mem[args[0]] * mem[args[1]];
                         return (false, None);
                     }
@@ -87,15 +103,22 @@ impl VirtualMachine {
             // Input
             3 => Operation{
                     args: 1,
-                    perform: | mem, args, input, _output, _relative_base | {
-                        mem[args[0]] = input.recv().unwrap();
+                    perform: | mem, args, input, _output, _relative_base, blocking | {
+                        if blocking {
+                            mem[args[0]] = input.recv().unwrap();
+                        } else {
+                            match input.try_recv() {
+                                Ok(n) => mem[args[0]] = n,
+                                _ => mem[args[0]] = -1,
+                            }
+                        }
                         return (false, None);
                     }
                 },
             // Output
             4 => Operation{
                     args: 1,
-                    perform: | mem, args, _input, output, _relative_base | {
+                    perform: | mem, args, _input, output, _relative_base, _blocking | {
                         output.send(mem[args[0]]).unwrap();
                         return (false, None);
                     }
@@ -103,7 +126,7 @@ impl VirtualMachine {
             // Jump-if-true
             5 => Operation{
                     args: 2,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         if mem[args[0]] != 0 {
                             return (false, Some(mem[args[1]].try_into().unwrap()));
                         } else {
@@ -114,7 +137,7 @@ impl VirtualMachine {
             // Jump-if-false
             6 => Operation{
                     args: 2,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         if mem[args[0]] == 0 {
                             return (false, Some(mem[args[1]].try_into().unwrap()));
                         } else {
@@ -125,7 +148,7 @@ impl VirtualMachine {
             // Less than
             7 => Operation{
                     args: 3,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         if mem[args[0]] < mem[args[1]] {
                             mem[args[2]] = 1;
                         } else {
@@ -137,7 +160,7 @@ impl VirtualMachine {
             // Equals
             8 => Operation{
                     args: 3,
-                    perform: | mem, args, _input, _output, _relative_base | {
+                    perform: | mem, args, _input, _output, _relative_base, _blocking | {
                         if mem[args[0]] == mem[args[1]] {
                             mem[args[2]] = 1;
                         } else {
@@ -149,7 +172,7 @@ impl VirtualMachine {
             // Adjust relative base
             9 => Operation{
                     args: 1,
-                    perform: | mem, args, _input, _output, relative_base | {
+                    perform: | mem, args, _input, _output, relative_base, _blocking | {
                         *relative_base += mem[args[0]];
                         return (false, None);
                     }
@@ -157,7 +180,7 @@ impl VirtualMachine {
             // Halt
             99 => Operation{
                     args: 0,
-                    perform: | _mem, _arg, _input, _output, _relative_base | {(true, None)}
+                    perform: | _mem, _arg, _input, _output, _relative_base, _blocking | {(true, None)}
                 },
             _ => panic!("Unknown operation: {}", opcode),
         }

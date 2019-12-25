@@ -1,0 +1,102 @@
+A - Hull breach
+- north - Hot chocolate fountain
+- east - Crew quaters
+- west - kitchen
+
+B - Kitchen
+- north - stables
+- east - hull breach
+- south - Hallway
+- hologram
+
+C - Hallway
+- north
+- molten lava - ends game
+
+D - Stables
+- east - storage
+- south - kitchen
+- space heater
+
+E - Storage
+- east - passages
+- south - Corridor
+- west - stables
+- space law space brochure
+
+F - Corridor
+- north - storage
+
+G - Passages
+- north - Science lab
+- south - Holodeck
+- west - storage
+- tambourine
+
+H - Holodeck
+- north - Passages
+
+I - Science lab
+- south - passages
+- photons - ends game
+
+J - Hot chocolate fountain
+- south - Hull breach
+- giant electromagnet - prevents anything else
+
+K - Crew quaters
+- east - Observatory
+- south - Arcade
+- west - Hull breach
+- festive hat
+
+L - Observatory
+- north - Navigation
+- east - Engineering
+- west - Crew Quaters
+- food ration
+
+M - Engineering
+- west - Observatory
+- spool of cat6
+
+N - Navigation
+- south - Observatory
+
+O - Arcade
+- north - crew quaters
+- east - Gift wrapping center
+- west - Warp Drive Maintenance
+- infinite loop - ends game
+
+P - Warp Drive Maintenance
+- east - Arcade
+- escape pod - quits game
+
+Q - Gift wrapping center
+- east - Sick bay
+- west - Arcade
+
+R - Sick Bay
+- east - Security checkpoint
+- west - Gift wrapping center
+- fuel cell
+
+S - Security checkpoint
+- south - Pressure-Sensitive-Floor
+- west - Sick bay
+
+T - Pressure Sensitive floor
+Can't have:
+Fuel cell
+Festive hat
+
+Must have:
+space law space brochure
+space heater
+hologram
+spool of cat6
+
+Uknonwn:
+food ration
+tambourine

@@ -2,6 +2,7 @@ use std::fs;
 use std::env;
 use std::str::FromStr;
 use itertools::Itertools;
+use std::time::SystemTime;
 
 fn find_sums(nums: &Vec<u64>, target: u64, size: usize) -> Vec<Vec<u64>> {
     nums.iter()
@@ -20,6 +21,7 @@ fn print_results(nums: &Vec<Vec<u64>>) {
 }
 
 fn main() {
+    let start_time = SystemTime::now();
     let args: Vec<String> = env::args().collect();
     let nums: Vec<u64> = fs::read_to_string(&args[1])
         .expect("Could not open input")
@@ -29,10 +31,21 @@ fn main() {
         .collect();
 
     let target = 2020;
-    println!("Part 1");
-    print_results(&find_sums(&nums, target, 2));
-    println!("Part 2");
-    print_results(&find_sums(&nums, target, 3));
+    let setup_time = SystemTime::now();
+    let part_1_ans = find_sums(&nums, target, 2);
+    let part_1_time = SystemTime::now();
+    let part_2_ans = find_sums(&nums, target, 3);
+    let part_2_time = SystemTime::now();
+
+    println!("Part 1:");
+    print_results(&part_1_ans);
+    println!("Part 2:");
+    print_results(&part_2_ans);
+    println!("\nTime beakdowns:\n\nSetup: {:?}\nPart 1: {:?}\nPart 2: {:?}\nTotal: {:?}",
+        setup_time.duration_since(start_time).unwrap(),
+        part_1_time.duration_since(setup_time).unwrap(),
+        part_2_time.duration_since(part_1_time).unwrap(),
+        part_2_time.duration_since(start_time).unwrap());
 }
 
 #[cfg(test)]

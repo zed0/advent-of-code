@@ -4,26 +4,23 @@ use std::str::FromStr;
 use itertools::Itertools;
 use std::time::SystemTime;
 
-fn find_sums(nums: &Vec<u64>, target: u64, size: usize) -> Vec<Vec<u64>> {
+fn find_sums(nums: &Vec<u64>, target: u64, size: usize) -> Vec<u64> {
     nums.iter()
         .cloned()
         .combinations(size)
-        .filter(|i| i.iter().cloned().sum::<u64>() == target)
-        .collect_vec()
+        .find(|i| i.iter().cloned().sum::<u64>() == target)
+        .unwrap()
 }
 
-fn print_results(nums: &Vec<Vec<u64>>) {
-    nums.iter()
-        .for_each(|r| {
-            println!("Numbers: {:?}", r);
-            println!("Product: {:?}", r.iter().cloned().fold1(|x,y| x*y).unwrap());
-        });
+fn print_results(nums: &Vec<u64>) {
+    println!("Numbers: {:?}", nums);
+    println!("Product: {:?}", nums.iter().cloned().fold1(|x,y| x*y).unwrap());
 }
 
 fn main() {
     let start_time = SystemTime::now();
     let args: Vec<String> = env::args().collect();
-    let nums: Vec<u64> = fs::read_to_string(&args[1])
+    let mut nums: Vec<u64> = fs::read_to_string(&args[1])
         .expect("Could not open input")
         .lines()
         .map(|i| i.to_string())
@@ -32,6 +29,7 @@ fn main() {
 
     let target = 2020;
     let setup_time = SystemTime::now();
+    nums.sort();
     let part_1_ans = find_sums(&nums, target, 2);
     let part_1_time = SystemTime::now();
     let part_2_ans = find_sums(&nums, target, 3);
@@ -62,6 +60,6 @@ mod tests {
             675,
             1456,
         ];
-        assert_eq!(find_sums(&nums, 2020, 2), vec![[1721, 299]]);
+        assert_eq!(find_sums(&nums, 2020, 2), vec![1721, 299]);
     }
 }

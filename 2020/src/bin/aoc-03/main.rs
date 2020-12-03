@@ -30,7 +30,7 @@ fn print_trees(trees: &Vec<bool>) {
     println!("");
 }
 
-fn check_slope(map: &Vec<Vec<bool>>, delta_y: usize, delta_x: usize) -> u64 {
+fn check_slope(map: &Vec<Vec<bool>>, delta_y: usize, delta_x: usize) -> u128 {
     let width = map[0].len();
     let mut pos_y = 0;
     let mut pos_x = 0;

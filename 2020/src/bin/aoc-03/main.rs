@@ -7,11 +7,7 @@ fn parse_input(input: &str) -> Vec<Vec<bool>> {
         .lines()
         .map(|i| i.to_string())
         .map(|i| {
-            let mut result = vec!{};
-            for c in i.chars() {
-                result.push(c == '#');
-            }
-            result
+            i.chars().map(|c| c == '#').collect()
         })
         .collect()
 }

@@ -19,8 +19,8 @@ impl PasswordDetails {
     }
 
     fn is_valid_2(&self) -> bool {
-        (self.password.chars().nth(self.min-1).unwrap() == self.character)
-            ^ (self.password.chars().nth(self.max-1).unwrap() == self.character)
+        (char_at(&self.password, self.min-1) == self.character)
+            ^ (char_at(&self.password, self.max-1) == self.character)
     }
 }
 
@@ -35,6 +35,13 @@ impl FromStr for PasswordDetails {
         ).unwrap();
         Ok(PasswordDetails { min, max, character, password })
     }
+}
+
+fn char_at(input: &str, i: usize) -> char {
+    if i > input.len() {
+        return ' ';
+    }
+    input[i..].chars().next().unwrap_or(' ')
 }
 
 fn count_valid(passwords: &Vec<PasswordDetails>) -> usize {

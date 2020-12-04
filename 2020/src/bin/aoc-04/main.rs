@@ -2,32 +2,35 @@ use std::fs;
 use std::env;
 use std::time::SystemTime;
 use std::collections::HashMap;
-use itertools::Itertools;
 use core::str::FromStr;
 use regex::Regex;
 
-fn required_keys() -> HashMap<&'static str, Box<dyn Fn(&str) -> bool>> {
-    let mut out: HashMap<&'static str, Box<dyn Fn(&str) -> bool>> = HashMap::new();
-    out.insert("byr", Box::new(move |e| {let s = u64::from_str(e).unwrap(); s >= 1920 && s <= 2002}));
-    out.insert("iyr", Box::new(move |e| {let s = u64::from_str(e).unwrap(); s >= 2010 && s <= 2020}));
-    out.insert("eyr", Box::new(move |e| {let s = u64::from_str(e).unwrap(); s >= 2020 && s <= 2030}));
-    out.insert("hgt", Box::new(move |e| {
-        let caps = Regex::new(r"^(\d+)(in|cm)$").unwrap().captures(e);
+type KeyMap = HashMap<String, Box<dyn Fn(&str) -> bool>>;
+fn make_key_map() -> KeyMap {
+    let hcl_re: Regex = Regex::new(r"^#[0-9a-f]{6}$").unwrap();
+    let hgt_re: Regex = Regex::new(r"^(\d+)(in|cm)$").unwrap();
+    let pid_re: Regex = Regex::new(r"^[0-9]{9}$").unwrap();
+
+    let mut out: HashMap<String, Box<dyn Fn(&str) -> bool>> = HashMap::new();
+    out.insert("byr".to_string(), Box::new(move |e| (1920..=2002).contains(&u64::from_str(e).unwrap())));
+    out.insert("iyr".to_string(), Box::new(move |e| (2010..=2020).contains(&u64::from_str(e).unwrap())));
+    out.insert("eyr".to_string(), Box::new(move |e| (2020..=2030).contains(&u64::from_str(e).unwrap())));
+    out.insert("hgt".to_string(), Box::new(move |e| {
+        let caps = hgt_re.captures(e);
         match caps {
             None => return false,
             Some(x) => {
-                let height = u64::from_str(&x[1]).unwrap();
                 match &x[2] {
-                    "cm" => return height >= 150 && height <= 193,
-                    "in" => return height >= 59 && height <= 76,
+                    "cm" => (150..=193).contains(&u64::from_str(&x[1]).unwrap()),
+                    "in" => (59..=76).contains(&u64::from_str(&x[1]).unwrap()),
                     _ => return false,
                 }
             },
         }
     }));
-    out.insert("hcl", Box::new(move |e| Regex::new(r"^#[0-9a-f]{6}$").unwrap().is_match(e)));
-    out.insert("ecl", Box::new(move |e| e == "amb" || e == "blu" || e == "brn" || e == "gry" || e == "grn" || e == "hzl" || e == "oth"));
-    out.insert("pid", Box::new(move |e| Regex::new(r"^[0-9]{9}$").unwrap().is_match(e)));
+    out.insert("hcl".to_string(), Box::new(move |e| hcl_re.is_match(e)));
+    out.insert("ecl".to_string(), Box::new(move |e| ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"].contains(&e)));
+    out.insert("pid".to_string(), Box::new(move |e| pid_re.is_match(e)));
     out
 }
 
@@ -37,28 +40,21 @@ struct PassportDetails {
 }
 
 impl PassportDetails {
-    fn fields_present(&self) -> bool {
-        for &key in required_keys().keys() {
-            if !self.data.contains_key(key) {
-                return false;
-            }
-        }
-        return true;
+    fn fields_present(&self, key_map: &KeyMap) -> bool {
+        key_map.iter()
+            .all(|(key, _val)| self.data.contains_key(key.as_str()))
     }
 
-    fn fields_valid(&self) -> bool {
+    fn fields_valid(&self, key_map: &KeyMap) -> bool {
         self.data.iter()
-            .map(|(key, val)| {
-                let keys = required_keys();
-                if !keys.contains_key(key.as_str()) {
-                   return true;
+            .all(|(key, val)| {
+                if key_map.contains_key(key) {
+                    key_map[key](val)
                 }
-                let func = &keys[&key.as_str()];
-                let result = func(&val);
-                return result;
+                else {
+                    true
+                }
             })
-            .fold1(|a, b| a && b)
-            .unwrap()
     }
 
     fn print(&self) {
@@ -76,8 +72,8 @@ impl FromStr for PassportDetails {
         let data = lines
             .trim()
             .split(char::is_whitespace)
-            .map(|e| e.splitn(2, ':').collect())
-            .map(|e: Vec<&str>| (e[0].to_string(), e[1].to_string()))
+            .map(|e| e.split_at(3))
+            .map(|e| (e.0.to_string(), e.1[1..].to_string()))
             .collect();
         Ok(PassportDetails { data })
     }
@@ -90,16 +86,16 @@ fn parse_input(input: &str) -> Vec<PassportDetails> {
         .collect()
 }
 
-fn count_valid_1(passports: &Vec<PassportDetails>) -> usize {
+fn count_valid_1(passports: &Vec<PassportDetails>, key_map: &KeyMap) -> usize {
     passports.iter()
-        .filter(|p| p.fields_present())
+        .filter(|p| p.fields_present(key_map))
         .count()
 }
 
-fn count_valid_2(passports: &Vec<PassportDetails>) -> usize {
+fn count_valid_2(passports: &Vec<PassportDetails>, key_map: &KeyMap) -> usize {
     passports.iter()
-        .filter(|p| p.fields_present())
-        .filter(|p| p.fields_valid())
+        .filter(|p| p.fields_present(key_map))
+        .filter(|p| p.fields_valid(key_map))
         .count()
 }
 
@@ -109,11 +105,12 @@ fn main() {
     let input = fs::read_to_string(&args[1])
         .expect("Could not open input");
     let passports = parse_input(&input);
+    let key_map = make_key_map();
 
     let setup_time = SystemTime::now();
-    let part_1_ans = count_valid_1(&passports);
+    let part_1_ans = count_valid_1(&passports, &key_map);
     let part_1_time = SystemTime::now();
-    let part_2_ans = count_valid_2(&passports);
+    let part_2_ans = count_valid_2(&passports, &key_map);
     let part_2_time = SystemTime::now();
 
     println!("Part 1: {}", part_1_ans);
@@ -128,6 +125,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::parse_input;
+    use super::make_key_map;
     use super::count_valid_1;
     use super::count_valid_2;
 
@@ -152,10 +150,11 @@ iyr:2011 ecl:brn hgt:59in"
     #[test]
     fn example1a() {
         let passports = parse_input(&example1());
+        let key_map = make_key_map();
         for passport in &passports {
             passport.print();
         }
-        assert_eq!(count_valid_1(&passports), 2);
+        assert_eq!(count_valid_1(&passports, &key_map), 2);
     }
 
     fn example2() -> String {
@@ -179,10 +178,11 @@ pid:3556412378 byr:2007"
     #[test]
     fn example2a() {
         let passports = parse_input(&example2());
+        let key_map = make_key_map();
         for passport in &passports {
             passport.print();
         }
-        assert_eq!(count_valid_2(&passports), 0);
+        assert_eq!(count_valid_2(&passports, &key_map), 0);
     }
 
     fn example3() -> String {
@@ -205,9 +205,10 @@ iyr:2010 hgt:158cm hcl:#b6652a ecl:blu byr:1944 eyr:2021 pid:093154719"
     #[test]
     fn example3a() {
         let passports = parse_input(&example3());
+        let key_map = make_key_map();
         for passport in &passports {
             passport.print();
         }
-        assert_eq!(count_valid_2(&passports), 4);
+        assert_eq!(count_valid_2(&passports, &key_map), 4);
     }
 }

@@ -3,13 +3,19 @@ use std::env;
 use std::time::SystemTime;
 
 fn seat_to_id(seat: &str) -> u32 {
-    let (row, col) = seat.split_at(7);
-        8 * u32::from_str_radix(&row, 2).unwrap()
-            + u32::from_str_radix(&col, 2).unwrap()
+    u32::from_str_radix(seat, 2).unwrap()
 }
 
 fn input_to_binary(input: &str) -> String {
-    input.replace("F", "0").replace("B", "1").replace("L", "0").replace("R", "1")
+    input.chars()
+        .map(|x| match x {
+            'F' => '0',
+            'B' => '1',
+            'L' => '0',
+            'R' => '1',
+            _ => x,
+        })
+        .collect()
 }
 
 fn find_missing(seat_ids: &Vec<u32>) -> u32 {
@@ -28,7 +34,6 @@ fn main() {
         .expect("Could not open input");
 
     let setup_time = SystemTime::now();
-
 
     let binary_input = input_to_binary(&input);
     let ids: Vec<u32> = binary_input.lines()

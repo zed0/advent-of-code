@@ -2,20 +2,18 @@ use std::fs;
 use std::env;
 use std::time::SystemTime;
 
-fn seat_to_id(seat: &str) -> u32 {
-    u32::from_str_radix(seat, 2).unwrap()
-}
-
-fn input_to_binary(input: &str) -> String {
+fn seat_to_id(input: &str) -> u32 {
     input.chars()
-        .map(|x| match x {
-            'F' => '0',
-            'B' => '1',
-            'L' => '0',
-            'R' => '1',
-            _ => x,
+        .map(|c| {
+            match c {
+                'F' => 0,
+                'B' => 1,
+                'L' => 0,
+                'R' => 1,
+                _ => panic!("???")
+            }
         })
-        .collect()
+        .fold(0, |acc, i| (acc << 1) + i)
 }
 
 fn find_missing(seat_ids: &Vec<u32>) -> u32 {
@@ -35,8 +33,7 @@ fn main() {
 
     let setup_time = SystemTime::now();
 
-    let binary_input = input_to_binary(&input);
-    let ids: Vec<u32> = binary_input.lines()
+    let ids: Vec<u32> = input.lines()
         .map(|line| seat_to_id(line))
         .collect();
     let part_1_ans = ids.iter().max().unwrap();
@@ -56,7 +53,6 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::seat_to_id;
-    use super::input_to_binary;
 
     fn example1() -> String {
         String::from("FBFBBFFRLR")
@@ -64,8 +60,7 @@ mod tests {
 
     #[test]
     fn example1a() {
-        let seat = input_to_binary(&example1());
-        assert_eq!(seat_to_id(&seat), 357);
+        assert_eq!(seat_to_id(&example1()), 357);
     }
 
     fn example2() -> String {
@@ -78,8 +73,7 @@ BBFFBBFRLL"
 
     #[test]
     fn example2a() {
-        let binary_input = input_to_binary(&example2());
-        let ids: Vec<u32> = binary_input.lines()
+        let ids: Vec<u32> = example2().lines()
             .map(|line| seat_to_id(line))
             .collect();
         assert_eq!(ids.iter().max().unwrap(), &820);

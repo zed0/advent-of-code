@@ -2,41 +2,28 @@ use std::fs;
 use std::env;
 use std::time::SystemTime;
 use std::collections::HashSet;
+use itertools::Itertools;
 
 fn count_answers(input: &str) -> usize { input
         .split("\n\n")
         .map(|group| {
-            let mut answers = HashSet::new();
             group.lines()
-                .for_each(|l| {
-                    answers = answers
-                        .union(
-                            &l.chars().collect::<HashSet<char>>()
-                        )
-                        .cloned()
-                        .collect()
-                });
-            answers.len()
+                .map(|l| l.chars().collect::<HashSet<char>>())
+                .fold1(|a, b| a.union(&b).cloned().collect())
+                .unwrap()
+                .len()
         })
         .sum()
 }
 
-fn count_common_answers(input: &str) -> usize {
-    input
+fn count_common_answers(input: &str) -> usize { input
         .split("\n\n")
         .map(|group| {
-            let mut answers: HashSet<char> = (b'a'..=b'z').map(char::from).collect();
-
             group.lines()
-                .for_each(|l| {
-                    answers = answers
-                        .intersection(
-                            &l.chars().collect::<HashSet<char>>()
-                        )
-                        .cloned()
-                        .collect();
-                });
-            answers.len()
+                .map(|l| l.chars().collect::<HashSet<char>>())
+                .fold1(|a, b| a.intersection(&b).cloned().collect())
+                .unwrap()
+                .len()
         })
         .sum()
 }

@@ -4,19 +4,19 @@ use std::time::SystemTime;
 use std::collections::HashSet;
 use itertools::Itertools;
 
-fn count_answers(input: &str) -> usize { input
+fn count_answers(input: &str) -> usize {
+    input
         .split("\n\n")
         .map(|group| {
             group.lines()
-                .map(|l| l.chars().collect::<HashSet<char>>())
-                .fold1(|a, b| a.union(&b).cloned().collect())
-                .unwrap()
+                .fold(HashSet::new(), |a, b| a.union(&b.chars().collect::<HashSet<char>>()).cloned().collect())
                 .len()
         })
         .sum()
 }
 
-fn count_common_answers(input: &str) -> usize { input
+fn count_common_answers(input: &str) -> usize {
+    input
         .split("\n\n")
         .map(|group| {
             group.lines()

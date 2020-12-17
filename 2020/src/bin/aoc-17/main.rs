@@ -12,58 +12,16 @@ use core::str::FromStr;
 use std::collections::VecDeque;
 use num::abs;
 
-fn iterate_dimensions<F>(mut f: F, dimensions: &usize) where
-    F: FnMut(&usize)
-{
-    for dimension in 0..*dimensions {
-        f(&dimension)
-    }
-}
-
-fn iterate_positions<F>(mut f: F, maxes: &Vec<i64>, mins: &Vec<i64>, dimensions: &usize) where
-    F: FnMut(Vec<i64>)
-{
-    let mut to_check: Vec<Vec<i64>> = Vec::new();
-
-    iterate_dimensions(|&dim| {
-        let mut next_to_check: Vec<Vec<i64>> = Vec::new();
-        for n in mins[dim]..=maxes[dim] {
-            let mut add: Vec<Vec<i64>> = Vec::new();
-            if dim == 0 {
-                add = vec!(vec!(n));
-            }
-            else {
-                for check in &to_check {
-                    let mut new = check.clone();
-                    new.push(n);
-                    add.push(new);
-                }
-            }
-            next_to_check.append(&mut add);
-        }
-        to_check = next_to_check;
-    }, dimensions);
-
-    for pos in to_check {
-        f(pos);
-    }
-}
-
 fn directions(dimensions: &usize) -> Vec<Vec<i64>> {
-    let mut dirs: Vec<Vec<i64>> = Vec::new();
-    let maxes = vec![1; *dimensions];
-    let mins = vec![-1; *dimensions];
-
-    iterate_positions(|pos| {
-        dirs.push(pos.clone());
-    }, &maxes, &mins, &dimensions);
-    dirs.retain(|dir| dir.iter().any(|n| *n != 0));
-    dirs
+    (0..*dimensions).map(|_| -1..=1)
+        .multi_cartesian_product()
+        .filter(|dir| dir.iter().any(|n| *n != 0))
+        .collect()
 }
 
-fn count_neighbours(grid: &HashSet<Vec<i64>>, position: &Vec<i64>, dimensions: &usize) -> u64 {
+fn count_neighbours(grid: &HashSet<Vec<i64>>, position: &Vec<i64>, dirs: &Vec<Vec<i64>>) -> u64 {
     let mut count = 0;
-    for direction in directions(&dimensions) {
+    for direction in dirs {
         let current = position.iter()
             .zip(direction)
             .map(|(a, b)| a + b)
@@ -75,26 +33,24 @@ fn count_neighbours(grid: &HashSet<Vec<i64>>, position: &Vec<i64>, dimensions: &
     count
 }
 
-fn get_next(grid: &HashSet<Vec<i64>>, dimensions: &usize) -> HashSet<Vec<i64>> {
+fn get_next(grid: &HashSet<Vec<i64>>, dirs: &Vec<Vec<i64>>) -> HashSet<Vec<i64>> {
     let mut next = HashSet::new();
 
-    let mut maxes = vec!();
-    let mut mins = vec!();
+    let to_check: HashSet<Vec<i64>> = grid.iter()
+        .cartesian_product(dirs)
+        .map(|(a, b)| a.iter().zip(b).map(|(x,y)| x + y).collect_vec())
+        .collect();
 
-    iterate_dimensions(|&dim| {
-        maxes.push(grid.iter().max_by_key(|pos| pos[dim]).unwrap()[dim] + 1);
-        mins.push(grid.iter().min_by_key(|pos| pos[dim]).unwrap()[dim] - 1);
-    }, &dimensions);
-
-    iterate_positions(|pos| {
-        let neighbours = count_neighbours(&grid, &pos, &dimensions);
+    for pos in to_check {
+        let neighbours = count_neighbours(&grid, &pos, &dirs);
         if grid.contains(&pos) && (2..=3).contains(&neighbours) {
             next.insert(pos);
         }
         else if neighbours == 3 {
             next.insert(pos);
         }
-    }, &maxes, &mins, &dimensions);
+    }
+
     next
 }
 
@@ -123,16 +79,18 @@ fn main() {
     let setup_time = SystemTime::now();
 
     let mut grid = parse_input(&input, &3);
+    let dirs = directions(&3);
     for _ in 0..6 {
-        grid = get_next(&grid, &3);
+        grid = get_next(&grid, &dirs);
     }
 
     let part_1_ans = grid.len();
     let part_1_time = SystemTime::now();
 
     let mut grid_2 = parse_input(&input, &4);
+    let dirs_2 = directions(&4);
     for _ in 0..6 {
-        grid_2 = get_next(&grid_2, &4);
+        grid_2 = get_next(&grid_2, &dirs_2);
     }
 
     let part_2_ans = grid_2.len();
@@ -151,6 +109,7 @@ fn main() {
 mod tests {
     use super::parse_input;
     use super::get_next;
+    use super::directions;
 
     fn example1() -> String {
         String::from(
@@ -162,8 +121,9 @@ mod tests {
     #[test]
     fn example1a() {
         let mut grid = parse_input(&example1(), &3);
+        let dirs = directions(&3);
         for _ in 0..6 {
-            grid = get_next(&grid, &3);
+            grid = get_next(&grid, &dirs);
         }
         assert_eq!(grid.len(), 112);
     }
@@ -171,9 +131,22 @@ mod tests {
     #[test]
     fn example1b() {
         let mut grid = parse_input(&example1(), &4);
+        let dirs = directions(&4);
         for _ in 0..6 {
-            grid = get_next(&grid, &4);
+            grid = get_next(&grid, &dirs);
         }
         assert_eq!(grid.len(), 848);
     }
+
+    /*
+    #[test]
+    fn example1c() {
+        let mut grid = parse_input(&example1(), &5);
+        let dirs = directions(&5);
+        for _ in 0..6 {
+            grid = get_next(&grid, &dirs);
+        }
+        assert_eq!(grid.len(), 5760);
+    }
+    */
 }

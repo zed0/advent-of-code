@@ -11,6 +11,7 @@ use std::num::TryFromIntError;
 use core::str::FromStr;
 use std::collections::VecDeque;
 use num::abs;
+use rand::{thread_rng, Rng};
 
 fn directions(dimensions: &usize) -> Vec<Vec<i64>> {
     (0..*dimensions).map(|_| -1..=1)
@@ -34,24 +35,23 @@ fn count_neighbours(grid: &HashSet<Vec<i64>>, position: &Vec<i64>, dirs: &Vec<Ve
 }
 
 fn get_next(grid: &HashSet<Vec<i64>>, dirs: &Vec<Vec<i64>>) -> HashSet<Vec<i64>> {
-    let mut next = HashSet::new();
-
-    let to_check: HashSet<Vec<i64>> = grid.iter()
+    grid.iter()
         .cartesian_product(dirs)
         .map(|(a, b)| a.iter().zip(b).map(|(x,y)| x + y).collect_vec())
-        .collect();
-
-    for pos in to_check {
-        let neighbours = count_neighbours(&grid, &pos, &dirs);
-        if grid.contains(&pos) && (2..=3).contains(&neighbours) {
-            next.insert(pos);
-        }
-        else if neighbours == 3 {
-            next.insert(pos);
-        }
-    }
-
-    next
+        .unique()
+        .filter_map(|pos| {
+            let neighbours = count_neighbours(&grid, &pos, &dirs);
+            if grid.contains(&pos) && (2..=3).contains(&neighbours) {
+                return Some(pos);
+            }
+            else if neighbours == 3 {
+                return Some(pos);
+            }
+            else {
+                return None;
+            }
+        })
+        .collect()
 }
 
 fn parse_input(input: &str, dimensions: &usize) -> HashSet<Vec<i64>> {
@@ -95,6 +95,28 @@ fn main() {
 
     let part_2_ans = grid_2.len();
     let part_2_time = SystemTime::now();
+
+    /*
+    let mut rng = thread_rng();
+    let big_input = (0..1000).map(|_| {
+            (0..1000).map(|_| {
+                match rng.gen_bool(1.0/3.0) {
+                    true => "#",
+                    false => ".",
+                }
+            }).join("")
+        })
+        .join("\n");
+    //println!("Big input: \n{}", big_input);
+    let mut grid_3 = parse_input(&big_input, &4);
+    let dirs_3 = directions(&4);
+    for n in 0..6 {
+        println!("Loop {}... active: {}", n, grid_3.len());
+        grid_3 = get_next(&grid_3, &dirs_3);
+    }
+    let part_3_ans = grid_3.len();
+    let part_3_time = SystemTime::now();
+    */
 
     println!("Part 1: {:?}", part_1_ans);
     println!("Part 2: {:?}", part_2_ans);

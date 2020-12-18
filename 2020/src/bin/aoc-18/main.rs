@@ -24,53 +24,41 @@ enum Precedence {
     Addition,
 }
 
-fn slurp_expression(line: &str, idx: usize, precedence: &Precedence) -> (i64, usize) {
-    let first = &line[idx..idx + 1];
-    if  first == "(" {
-        let (a, next_idx) = eval(line, idx + 1, precedence);
-        return (a, next_idx+1);
+fn slurp_expression(line: &mut String, precedence: &Precedence) -> i64 {
+    if line.chars().nth(0).unwrap() == '(' {
+        line.remove(0); //opening bracket
+        let a = eval(line, precedence);
+        line.remove(0); //closing bracket
+        return a;
     }
 
-    let next_idx = line[idx..].find(|c: char| !c.is_ascii_digit()).unwrap_or(line.len() - idx) + idx;
-    let segment = &line[idx..next_idx];
-    let a = i64::from_str_radix(segment, 10).unwrap();
-
-    return (a, next_idx);
+    let split_point = line.find(|c: char| !c.is_ascii_digit()).unwrap_or(line.len());
+    let a = i64::from_str_radix(&line[0..split_point], 10).unwrap();
+    *line = line[split_point..].to_string();
+    return a;
 }
 
-fn slurp_operation(line: &str, idx: usize) -> (char, usize) {
-    let next_idx = idx + 1;
-    let e = line.chars().nth(idx).unwrap();
-
-    return (e, next_idx);
+fn slurp_operation(line: &mut String) -> char {
+    line.remove(0)
 }
 
-fn eval(line: &str, idx: usize, precedence: &Precedence) -> (i64, usize) {
+fn eval(line: &mut String, precedence: &Precedence) -> i64 {
     let mut expressions = Vec::new();
     let mut operations = Vec::new();
-    let (a, a_idx) = slurp_expression(line, idx, precedence);
-    expressions.push(a);
-    let mut current_idx = a_idx;
+    expressions.push(slurp_expression(line, precedence));
 
-    while current_idx < line.len() {
-        if &line[current_idx..current_idx + 1] == ")" {
-            break;
-        }
-        current_idx += 1; //whitespace
-        let (e, next_idx) = slurp_operation(line, current_idx);
-        operations.push(e);
-        current_idx = next_idx;
-        current_idx += 1; //whitespace
-        let (b, next_next_idx) = slurp_expression(line, current_idx, precedence);
-        expressions.push(b);
-        current_idx = next_next_idx;
+    while line.len() > 0 && line.chars().nth(0).unwrap() != ')' {
+        line.remove(0); //whitespace
+        operations.push(slurp_operation(line));
+        line.remove(0); //whitespace
+        expressions.push(slurp_expression(line, precedence));
     }
 
     while !operations.is_empty() {
         reduce(&mut expressions, &mut operations, precedence);
     }
 
-    return (expressions[0], current_idx);
+    return expressions[0];
 }
 
 fn reduce(expressions: &mut Vec<i64>, operations: &mut Vec<char>, precedence: &Precedence) {
@@ -104,12 +92,12 @@ fn main() {
     let lines = parse_input(&input);
 
     let part_1_ans: i64 = lines.iter()
-        .map(|line| eval(line, 0, &Precedence::First).0)
+        .map(|line| eval(&mut line.clone(), &Precedence::First))
         .sum();
     let part_1_time = SystemTime::now();
 
     let part_2_ans: i64 = lines.iter()
-        .map(|line| eval(line, 0, &Precedence::Addition).0)
+        .map(|line| eval(&mut line.clone(), &Precedence::Addition))
         .sum();
     let part_2_time = SystemTime::now();
 
@@ -134,8 +122,8 @@ mod tests {
 
     #[test]
     fn example1a() {
-        assert_eq!(eval(&example1(), 0, &Precedence::First), (71, example1().len()));
-        assert_eq!(eval(&example1(), 0, &Precedence::Addition), (231, example1().len()));
+        assert_eq!(eval(&mut example1(), &Precedence::First), 71);
+        assert_eq!(eval(&mut example1(), &Precedence::Addition), 231);
     }
 
     fn example2() -> String {
@@ -144,8 +132,8 @@ mod tests {
 
     #[test]
     fn example2a() {
-        assert_eq!(eval(&example2(), 0, &Precedence::First), (26, example2().len()));
-        assert_eq!(eval(&example2(), 0, &Precedence::Addition), (46, example2().len()));
+        assert_eq!(eval(&mut example2(), &Precedence::First), 26);
+        assert_eq!(eval(&mut example2(), &Precedence::Addition), 46);
     }
 
     fn example3() -> String {
@@ -154,8 +142,8 @@ mod tests {
 
     #[test]
     fn example3a() {
-        assert_eq!(eval(&example3(), 0, &Precedence::First), (437, example3().len()));
-        assert_eq!(eval(&example3(), 0, &Precedence::Addition), (1445, example3().len()));
+        assert_eq!(eval(&mut example3(), &Precedence::First), 437);
+        assert_eq!(eval(&mut example3(), &Precedence::Addition), 1445);
     }
 
     fn example4() -> String {
@@ -164,8 +152,8 @@ mod tests {
 
     #[test]
     fn example4a() {
-        assert_eq!(eval(&example4(), 0, &Precedence::First), (12240, example4().len()));
-        assert_eq!(eval(&example4(), 0, &Precedence::Addition), (669060, example4().len()));
+        assert_eq!(eval(&mut example4(), &Precedence::First), 12240);
+        assert_eq!(eval(&mut example4(), &Precedence::Addition), 669060);
     }
 
     fn example5() -> String {
@@ -174,7 +162,7 @@ mod tests {
 
     #[test]
     fn example5a() {
-        assert_eq!(eval(&example5(), 0, &Precedence::First), (13632, example5().len()));
-        assert_eq!(eval(&example5(), 0, &Precedence::Addition), (23340, example5().len()));
+        assert_eq!(eval(&mut example5(), &Precedence::First), 13632);
+        assert_eq!(eval(&mut example5(), &Precedence::Addition), 23340);
     }
 }

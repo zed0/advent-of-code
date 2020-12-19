@@ -31,11 +31,13 @@ fn slurp_expression(line: &mut String, precedence: &Precedence) -> i64 {
         line.remove(0); //closing bracket
         return a;
     }
-
-    let split_point = line.find(|c: char| !c.is_ascii_digit()).unwrap_or(line.len());
-    let a = i64::from_str_radix(&line[0..split_point], 10).unwrap();
-    *line = line[split_point..].to_string();
-    return a;
+    else {
+        let split_point = line.find(|c: char| !c.is_ascii_digit()).unwrap_or(line.len());
+        let (a, rest) = line.split_at(split_point);
+        let a = i64::from_str_radix(a, 10).unwrap();
+        *line = rest.to_string();
+        return a;
+    }
 }
 
 fn slurp_operation(line: &mut String) -> char {
@@ -66,12 +68,9 @@ fn reduce(expressions: &mut Vec<i64>, operations: &mut Vec<char>, precedence: &P
         Precedence::First => 0,
         Precedence::Addition => operations.iter().position(|op| op == &'+').unwrap_or(0),
     };
-    let e = operations[op_idx];
-    operations.remove(op_idx);
-    let b = expressions[op_idx + 1];
-    expressions.remove(op_idx + 1);
-    let a = expressions[op_idx];
-    expressions.remove(op_idx);
+    let e = operations.remove(op_idx);
+    let a = expressions.remove(op_idx);
+    let b = expressions.remove(op_idx);
 
     let result = match e {
         '+' => a + b,

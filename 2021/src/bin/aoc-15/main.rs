@@ -65,11 +65,11 @@ fn find_path(map: &HashMap<Pos, i64>) -> i64 {
     let mut best_routes = HashMap::new();
 
     to_check.insert((0, start));
-    best_routes.insert(start, (0, vec![start]));
+    best_routes.insert(start, 0);
 
     while !to_check.is_empty() {
         let current_pos = to_check.take(&to_check.iter().min().unwrap().clone()).unwrap().1;
-        let (current_score, current_route) = best_routes.get(&current_pos).unwrap().clone();
+        let current_score = best_routes.get(&current_pos).unwrap().clone();
 
         if current_pos == *finish {
             return current_score;
@@ -77,22 +77,17 @@ fn find_path(map: &HashMap<Pos, i64>) -> i64 {
 
         for direction in directions() {
             let next_pos = current_pos + direction;
-            if current_route.contains(&next_pos) {
-                continue;
-            }
             if map.get(&next_pos).is_none() {
                 continue;
             }
 
             let next_score = map.get(&next_pos).unwrap() + current_score;
-            if best_routes.contains_key(&next_pos) && best_routes.get(&next_pos).unwrap().0 <= next_score {
+            if best_routes.contains_key(&next_pos) && best_routes.get(&next_pos).unwrap() <= &next_score {
                 continue;
             }
 
-            let mut next_route: Vec<Pos> = current_route.clone();
-            next_route.push(next_pos);
             to_check.insert((next_score, next_pos));
-            best_routes.insert(next_pos, (next_score, next_route));
+            best_routes.insert(next_pos, next_score);
         }
     }
 

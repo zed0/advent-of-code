@@ -16,6 +16,7 @@ scan_fmt = "0.2.5"
 rand = "0.7.3"
 bit-vec = "0.6"
 hex = "0.4"
+nom = "7.1.0"
 
 [profile.release]
 overflow-checks = true

@@ -19,6 +19,7 @@ hex = "0.4"
 nom = "7.1.0"
 text_io = "0.1.12"
 eval = "0.4.3"
+memoize = "0.3.3"
 
 [profile.release]
 overflow-checks = true

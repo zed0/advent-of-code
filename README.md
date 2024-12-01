@@ -15,6 +15,12 @@ RUST_BACKTRACE=1 cargo test --bin $(basename $(pwd)) -- --nocapture --test-threa
 cargo run --release --bin $(basename $(pwd)) input.txt
 ```
 
+## Running Python solutions
+
+1. Install `uv`
+2. Navigate to daily directory
+2. Run with `./main.py input_file`
+
 ## Running C++ solutions
 Generally these can be compiled and run as follows:
 ```bash
